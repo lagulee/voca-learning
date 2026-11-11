@@ -23,10 +23,11 @@ export function shuffle(arr, seed) {
   return a;
 }
 
-export function createRun(items, { gap0 = 3, gap1 = 6 } = {}) {
-  const queue = [...items];
-  const first = new Map();
-  const tries = new Map();
+export function createRun(items, { gap0 = 3, gap1 = 6 } = {}, snap = null) {
+  const byId = new Map(items.map((x) => [x.id, x]));
+  const queue = snap ? snap.queue.map((id) => { const x = byId.get(id); if (!x) throw new Error('unknown item'); return x; }) : [...items];
+  const first = new Map(snap?.first ?? []);
+  const tries = new Map(snap?.tries ?? []);
   return {
     current: () => queue[0] ?? null,
     done: () => queue.length === 0,
@@ -45,6 +46,7 @@ export function createRun(items, { gap0 = 3, gap1 = 6 } = {}) {
       return { total: items.length, left, finished: items.length - left };
     },
     results: () => new Map(first),
+    snapshot: () => ({ queue: queue.map((x) => x.id), first: [...first], tries: [...tries] }),
     attempts: (id) => tries.get(id) ?? 0,
   };
 }

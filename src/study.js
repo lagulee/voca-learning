@@ -10,6 +10,7 @@ import { makeRootQuestions, makeRuleItems } from './quiz.js';
 import { computeStats, weakList } from './stats.js';
 import { mcqHtml, ruleHtml, statsHtml } from './views.js';
 import { makeBackup, validateBackup, downloadJson } from './backup.js';
+import { serializeSession, restoreSession, describeSaved } from './persist.js';
 import { canSpeak, speak } from './speech.js';
 
 const store = createStore();
@@ -23,6 +24,7 @@ let byId = new Map();
 let states = new Map();    // id → 간격 반복 상태
 let sess = null;           // 진행 중인 세션
 let timer = null;
+let saved = null;          // 저장된(이어서 할 수 있는) 세션 요약
 
 const examDay = () => {
   try {
@@ -45,6 +47,10 @@ async function home() {
   await load();
   const mode = await store.whenReady();
   const now = Date.now();
+  const raw = await store.getSession().catch(() => null);
+  saved = raw && restoreSession(raw, byId, now) ? describeSaved(raw) : null;
+  if (raw && !saved) await store.clearSession().catch(() => {});     // 복원할 수 없는 저장본은 버린다
+  const ago = saved ? Math.max(1, Math.round((now - saved.savedAt) / 60000)) : 0;
   const due = dueCards([...states.values()], now).filter((s) => byId.has(s.id));
   const days = [...new Set(cards.map((c) => c.day))].sort((a, b) => a - b);
   const weak = weakList(cards, [...states.values()]);
@@ -58,6 +64,8 @@ async function home() {
   root.innerHTML = `
     ${mode === 'memory' ? '<p class="ng"><b>이 방식으로 열면 기록이 저장되지 않습니다.</b> 파일을 크롬이나 삼성 인터넷에서 직접 열어 주세요.</p>' : ''}
     <h1>오늘의 학습 <small>${streak ? `🔥 ${streak}일 연속` : ''}</small></h1>
+    ${saved ? `<div class="stage" style="min-height:0;margin-bottom:12px"><p><b>하던 학습이 있습니다</b><br>${saved.day == null ? '복습·연습' : `DAY ${saved.day}`} · ${PHASE_NAME[saved.phase]} ${saved.finished}/${saved.total} <small>(${ago}분 전)</small></p>
+      <div class="btns"><button id="resume" class="g2">이어서 하기</button><button id="discard" class="g0">버리기</button></div></div>` : ''}
     <div class="stage">
       <p><b>복습할 카드 ${due.length}장</b> <small>(취약 ${due.filter((s) => s.weak).length}장 · 하루 상한 30장)</small></p>
       <div class="btns"><button id="rv" class="${due.length ? 'g2' : ''}" ${due.length ? '' : 'disabled'}>복습만 하기</button></div>
@@ -81,6 +89,8 @@ async function home() {
     for (const t of Object.values(DAYS)) await store.putCards(parseDay(t).cards);
     home();
   });
+  document.getElementById('resume')?.addEventListener('click', resume);
+  document.getElementById('discard')?.addEventListener('click', async () => { if (confirm('하던 학습을 버릴까요? (이미 저장된 복습 기록은 유지됩니다)')) { await store.clearSession(); home(); } });
   document.getElementById('rv').addEventListener('click', () => start(null));
   const boxes = [...root.querySelectorAll('[data-cram]')];
   boxes.forEach((b) => b.addEventListener('change', () => { document.getElementById('cram').disabled = !boxes.some((x) => x.checked); }));
@@ -117,7 +127,22 @@ function start(day) {
   launch(day, phases, now);
 }
 
+const persist = () => { if (sess?.cur) store.putSession(serializeSession(sess, Date.now())).catch(() => {}); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) persist(); });
+window.addEventListener('pagehide', persist);
+
+async function resume() {
+  const raw = await store.getSession();
+  const s = raw && restoreSession(raw, byId, Date.now());
+  if (!s) return home();
+  sess = s;
+  clearInterval(timer);
+  timer = setInterval(tick, 1000);
+  if (sess.cur.id === 'preview') renderPreview(sess.cur); else step();
+}
+
 function launch(day, phases, now) {
+  if (saved && !confirm('하던 학습이 있습니다. 새로 시작하면 그 진행은 사라집니다. 계속할까요?')) return;
   sess = { day, phases, pi: -1, t0: now, seen: new Set(), done: [] };
   clearInterval(timer);
   timer = setInterval(tick, 1000);
@@ -201,8 +226,9 @@ function nextPhase() {
   const p = sess.phases[sess.pi];
   if (!p) return finish();
   sess.cur = p;
-  if (p.id === 'preview') return renderPreview(p);
+  if (p.id === 'preview') { persist(); return renderPreview(p); }
   p.run = createRun(p.items);
+  persist();
   step();
 }
 
@@ -249,7 +275,7 @@ function renderFlip(card) {
     setStage(`${answerHtml(card)}
       <div class="btns"><button data-g="0" class="g0">몰랐다 (1)</button><button data-g="1">헷갈렸다 (2)</button><button data-g="2" class="g2">알았다 (3)</button>${speakBtn(card)}</div>`);
     bindSpeak(card); autoSpeak(card);
-    const grade = (g) => { document.removeEventListener('keydown', onGrade); sess.cur.run.submit(g); step(); };
+    const grade = (g) => { document.removeEventListener('keydown', onGrade); sess.cur.run.submit(g); persist(); step(); };
     const onGrade = (e) => { if ('123'.includes(e.key) && e.key) grade(Number(e.key) - 1); };
     root.querySelectorAll('[data-g]').forEach((b) => b.addEventListener('click', () => grade(Number(b.dataset.g))));
     document.addEventListener('keydown', onGrade);
@@ -282,6 +308,7 @@ function renderTyped(card) {
     const grade = gradeTyped(res.ok, hints);
     record(card, grade);
     p.run.submit(grade);
+    persist();
     const shown = cloze
       ? `<div class="cloze">${clozeHtml(cloze, vals, res.each)}</div>`
       : answerHtml(card);
@@ -319,6 +346,7 @@ function renderMcq(q) {
     document.removeEventListener('keydown', onKey);
     const ok = i === q.answer;
     sess.cur.run.submit(ok ? 2 : 0);
+    persist();
     root.querySelectorAll('.opt').forEach((b) => {
       b.disabled = true;
       if (Number(b.dataset.i) === q.answer) b.classList.add('right');
@@ -345,6 +373,7 @@ function renderRule(card) {
     document.removeEventListener('keydown', onEnter);
     const res = checkTyped(card, giveUp ? '' : input.value, cards);
     sess.cur.run.submit(gradeTyped(res.ok, hint));
+    persist();
     setStage(`<p class="${res.ok ? 'ok' : 'ng'}">${res.ok ? '정답' : '오답'}</p>${answerHtml(card)}
       <div class="btns"><button id="nx" class="g2">다음 (Enter)</button></div>`);
     const nx = () => { document.removeEventListener('keydown', onNext); step(); };
@@ -376,6 +405,8 @@ async function record(card, grade) {
 /* ---------- 마무리 ---------- */
 async function finish() {
   clearInterval(timer);
+  saved = null;
+  await store.clearSession().catch(() => {});
   const ms = Date.now() - sess.t0;
   const get = (id) => sess.done.find((p) => p.id === id);
   const stat = (id) => {

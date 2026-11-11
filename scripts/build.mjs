@@ -10,11 +10,11 @@ const strip = (src) => src
   .replace(/^import .*?;\s*$/gm, '')
   .replace(/^export (async function|function|const|let|class)/gm, '$1');
 
-const lib = ['days', 'parser', 'store', 'scheduler', 'answer', 'session', 'render', 'quiz', 'stats', 'views', 'backup', 'speech'].map((n) => strip(read(`src/${n}.js`))).join('\n');
+const lib = ['days', 'parser', 'store', 'scheduler', 'answer', 'session', 'render', 'quiz', 'stats', 'views', 'backup', 'speech', 'persist'].map((n) => strip(read(`src/${n}.js`))).join('\n');
 // 한 범위로 합치므로 최상위 이름이 겹치면 브라우저에서 깨진다. 빌드할 때 미리 막는다.
 {
   const seen = new Map();
-  for (const n of ['days', 'parser', 'store', 'scheduler', 'answer', 'session', 'render', 'quiz', 'stats', 'views', 'backup', 'speech']) {
+  for (const n of ['days', 'parser', 'store', 'scheduler', 'answer', 'session', 'render', 'quiz', 'stats', 'views', 'backup', 'speech', 'persist']) {
     for (const m of strip(read(`src/${n}.js`)).matchAll(/^(?:async function|function|const|let|class) ([A-Za-z_$][\w$]*)/gm)) {
       if (seen.has(m[1])) throw new Error(`이름 충돌: ${m[1]} (${seen.get(m[1])}, ${n})`);
       seen.set(m[1], n);

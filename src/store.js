@@ -2,6 +2,7 @@
 //  카드:  putCards(cards), listCards({day}), listDays(), deleteDay(day)
 //  상태:  getStates() → 배열, putState(state)   (간격 반복 상태, 카드 id 기준)
 //  로그:  putLog(entry), listLogs()
+//  세션:  putSession(obj), getSession(), clearSession()   (진행 중인 학습, 백업에는 포함하지 않음)
 //  백업:  exportAll() → {cards, states, logs}, importAll({cards, states, logs}) (전체 교체)
 
 const byOrder = (a, b) => a.day - b.day || a.order - b.order;
@@ -10,6 +11,7 @@ export function createMemoryStore() {
   const cards = new Map();
   const states = new Map();
   const logs = [];
+  let session = null;
   return {
     async putCards(list) { for (const c of list) cards.set(c.id, { ...c }); },
     async listCards({ day } = {}) {
@@ -23,6 +25,9 @@ export function createMemoryStore() {
     async putState(s) { states.set(s.id, { ...s }); },
     async putLog(e) { logs.push({ ...e }); },
     async listLogs() { return logs.map((e) => ({ ...e })); },
+    async putSession(s) { session = JSON.parse(JSON.stringify(s)); },
+    async getSession() { return session ? JSON.parse(JSON.stringify(session)) : null; },
+    async clearSession() { session = null; },
     async exportAll() { return { cards: await this.listCards(), states: await this.getStates(), logs: await this.listLogs() }; },
     async importAll(d) {
       cards.clear(); states.clear(); logs.length = 0;
@@ -47,12 +52,15 @@ export function createLocalStore(key = 'vocab-app-data-v1') {
     putCards: wrap(mem.putCards, true), listCards: wrap(mem.listCards), listDays: wrap(mem.listDays), deleteDay: wrap(mem.deleteDay, true),
     getStates: wrap(mem.getStates), putState: wrap(mem.putState, true), putLog: wrap(mem.putLog, true), listLogs: wrap(mem.listLogs),
     exportAll: wrap(mem.exportAll), importAll: wrap(mem.importAll, true), ready,
+    async putSession(s) { await ready; localStorage.setItem(key + '-session', JSON.stringify(s)); },
+    async getSession() { await ready; const r = localStorage.getItem(key + '-session'); return r ? JSON.parse(r) : null; },
+    async clearSession() { await ready; localStorage.removeItem(key + '-session'); },
   };
 }
 
 // 가능한 저장 방식을 차례로 시도한다. mode: 'idb' | 'local' | 'memory'(저장 안 됨)
 export function createStore() {
-  const NAMES = ['putCards', 'listCards', 'listDays', 'deleteDay', 'getStates', 'putState', 'putLog', 'listLogs', 'exportAll', 'importAll'];
+  const NAMES = ['putCards', 'listCards', 'listDays', 'deleteDay', 'getStates', 'putState', 'putLog', 'listLogs', 'exportAll', 'importAll', 'putSession', 'getSession', 'clearSession'];
   const out = { mode: 'pending' };
   const pick = (async () => {
     try {
@@ -75,7 +83,7 @@ export function createStore() {
 
 export function createIdbStore(dbName = 'vocab-app') {
   const open = () => new Promise((res, rej) => {
-    const r = indexedDB.open(dbName, 2);
+    const r = indexedDB.open(dbName, 3);
     r.onupgradeneeded = () => {
       const db = r.result;
       if (!db.objectStoreNames.contains('cards')) {
@@ -83,6 +91,7 @@ export function createIdbStore(dbName = 'vocab-app') {
       }
       if (!db.objectStoreNames.contains('states')) db.createObjectStore('states', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('logs')) db.createObjectStore('logs', { autoIncrement: true });
+      if (!db.objectStoreNames.contains('meta')) db.createObjectStore('meta', { keyPath: 'key' });
     };
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
@@ -109,6 +118,9 @@ export function createIdbStore(dbName = 'vocab-app') {
       const r = cs.index('day').openCursor(day);
       r.onsuccess = () => { const c = r.result; if (c) { ss.delete(c.value.id); c.delete(); c.continue(); } };
     }),
+    putSession: (v) => run(['meta'], 'readwrite', (s) => { s.put({ key: 'session', value: v }); }),
+    getSession: async () => (await run(['meta'], 'readonly', (s) => s.get('session')))?.value ?? null,
+    clearSession: () => run(['meta'], 'readwrite', (s) => { s.delete('session'); }),
     getStates: () => run(['states'], 'readonly', (s) => s.getAll()),
     putState: (st) => run(['states'], 'readwrite', (s) => { s.put(st); }),
     putLog: (e) => run(['logs'], 'readwrite', (s) => { s.add(e); }),
