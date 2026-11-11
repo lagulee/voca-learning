@@ -12,6 +12,17 @@ jobs:
         with: { node-version: 20 }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 17 }
+      - name: 서명 키 캐시 (빌드마다 같은 키를 쓰기 위함, 저장소에는 넣지 않음)
+        id: ks
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: debug-keystore-v1
+      - name: 서명 키가 없으면 새로 만든다
+        if: steps.ks.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/.android
+          keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
       - run: npm install
       - run: npm run build
       - run: npx cap add android
