@@ -1,0 +1,6 @@
+{
+  "appId": "com.lagulee.vocabapp",
+  "appName": "단어 암기",
+  "webDir": "www",
+  "server": { "androidScheme": "https" }
+}

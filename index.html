@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>단어 입력</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="nav" href="study.html">▶ 학습하러 가기</a>
+<h1>DAY 입력</h1>
+<textarea id="input" placeholder="# DAY 9&#10;[연결사]&#10;on account of | ~때문에" spellcheck="false"></textarea>
+<div class="row"><select id="dayPick"></select><button id="load">불러오기</button><button id="saveAll">DAY 9~15 전체 저장</button><button id="save" class="p" disabled>저장</button><span id="count"></span></div>
+<ul id="msgs"></ul>
+<ul id="preview"></ul>
+<h1>저장된 DAY</h1>
+<div id="days"></div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

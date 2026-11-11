@@ -1,0 +1,15 @@
+{
+  "name": "vocab-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "영단어 암기 앱 (간격 반복, 어원·접미사 문제). 안드로이드 APK는 GitHub Actions가 만든다.",
+  "scripts": { "build": "node scripts/build.mjs www/index.html" },
+  "dependencies": {
+    "@capacitor/android": "6.2.3",
+    "@capacitor/core": "6.2.3",
+    "@capacitor/filesystem": "6.0.4",
+    "@capacitor/share": "6.0.4"
+  },
+  "devDependencies": { "@capacitor/cli": "6.2.3" }
+}
