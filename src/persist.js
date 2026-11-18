@@ -42,6 +42,6 @@ export function describeSaved(d) {
   const p = d?.phases?.[d.pi];
   if (!p) return null;
   const total = p.items.length;
-  const left = p.run ? new Set(p.run.queue).size : total;
+  const left = p.run ? new Set([...p.run.queue, ...(p.run.retry ?? [])]).size : total;
   return { day: d.day, phase: p.id, finished: total - left, total, savedAt: d.savedAt };
 }

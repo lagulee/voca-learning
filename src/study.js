@@ -227,7 +227,7 @@ function nextPhase() {
   if (!p) return finish();
   sess.cur = p;
   if (p.id === 'preview') { persist(); return renderPreview(p); }
-  p.run = createRun(p.items);
+  p.run = createRun(p.items, { rounds: p.mode === 'flip' });
   persist();
   step();
 }

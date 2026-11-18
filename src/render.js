@@ -10,7 +10,7 @@ export function morphHtml(c) {
   return c.morphs.map((m, i) => `<span class="m m${i % 3}">${esc(m)}</span>`).join('<i>/</i>');
 }
 
-export function ipaHtml(c) { return IPA[c.front] ? `<span class="ipa">${esc(IPA[c.front])}</span>` : ''; }
+export function ipaHtml(c) { const v = c.ipa || IPA[c.front]; return v ? `<span class="ipa">${esc(v)}</span>` : ''; }
 
 export function frontHtml(c) { return (c.type === 'root' ? morphHtml(c) : esc(c.front)) + ipaHtml(c); }
 
