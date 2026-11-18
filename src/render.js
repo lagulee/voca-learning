@@ -1,4 +1,5 @@
 // 카드 표시용 HTML 조각. DOM에 직접 접근하지 않는다.
+import { IPA } from './ipa.js';
 export const TYPE_LABEL = { connective: '연결사', mood: '심경', proverb: '속담', root: '어원', suffix: '접미사' };
 
 export function esc(s) {
@@ -9,7 +10,9 @@ export function morphHtml(c) {
   return c.morphs.map((m, i) => `<span class="m m${i % 3}">${esc(m)}</span>`).join('<i>/</i>');
 }
 
-export function frontHtml(c) { return c.type === 'root' ? morphHtml(c) : esc(c.front); }
+export function ipaHtml(c) { return IPA[c.front] ? `<span class="ipa">${esc(IPA[c.front])}</span>` : ''; }
+
+export function frontHtml(c) { return (c.type === 'root' ? morphHtml(c) : esc(c.front)) + ipaHtml(c); }
 
 export function cardRow(c) {
   const sub = c.type === 'root' ? `<small>${esc(c.morphGloss)} · ${esc(c.pos)}</small>`
