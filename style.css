@@ -28,3 +28,5 @@ button.g0{border-color:var(--err);color:var(--err)}button.g2{background:var(--ac
 .wk{display:flex;align-items:center;gap:8px;font-size:13px}.wk .track{flex:1;background:var(--line);border-radius:4px;height:10px;overflow:hidden}.wk .bar2{display:block;height:100%;background:var(--acc)}
 h2{font-size:16px;margin:18px 0 6px}
 .chk{display:inline-block;margin:4px 10px 4px 0;font-size:15px}button.sp{flex:0 0 52px;min-width:52px!important}h1 small{font-size:14px;font-weight:400}
+
+ul.tape li{cursor:pointer}ul.tape li:not(.show) .b{background:var(--line);color:transparent;border-radius:6px;user-select:none}

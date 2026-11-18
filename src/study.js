@@ -256,11 +256,22 @@ function setStage(html) {
 
 /* ---------- 예습 ---------- */
 function renderPreview(p) {
+  let tape = true;
+  try { tape = localStorage.getItem('vocab.tape') !== '0'; } catch { /* 저장 불가면 기본값 */ }
   root.innerHTML = `<div class="bar"><b>예습</b><span id="timer"></span></div>
     <div class="stage"><p class="meta">한 번 훑어보세요(약 2분). 이 다음부터는 보지 않고 떠올립니다.</p>
-    <ul>${p.items.map(cardRow).join('')}</ul>
+    <div class="row"><label><input type="checkbox" id="tape"> 테이프(뜻 가리기)</label><span class="meta">가린 뜻은 줄을 눌러 보기/다시 가리기</span></div>
+    <ul id="pv" class="${tape ? 'tape' : ''}">${p.items.map(cardRow).join('')}</ul>
     <div class="btns"><button id="go" class="g2">다 봤어요 ▶</button></div></div>`;
   tick();
+  const ul = document.getElementById('pv'); const box = document.getElementById('tape');
+  box.checked = tape;
+  box.addEventListener('change', () => {
+    ul.classList.toggle('tape', box.checked);
+    ul.querySelectorAll('li.show').forEach((li) => li.classList.remove('show'));
+    try { localStorage.setItem('vocab.tape', box.checked ? '1' : '0'); } catch { /* 무시 */ }
+  });
+  ul.addEventListener('click', (e) => { const li = e.target.closest('li'); if (li) li.classList.toggle('show'); });
   document.getElementById('go').addEventListener('click', nextPhase);
 }
 
